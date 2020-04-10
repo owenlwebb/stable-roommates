@@ -15,7 +15,6 @@ class Person:
     def __post_init__(self):
         """Add Person's pref list to the dict of all pref lists."""
         Person.prefs[self.name] = self.plist
-        self.plist = Person.prefs[self.name]
 
     def pref_of(self: Person, other: Person) -> int:
         """Returns this Person's preference for another."""
@@ -25,9 +24,9 @@ class Person:
         """Is this person currently matched with their best possible partner
         according to their current preference list?"""
         if self.mate:
-            for person_label in self.prefs:
-                if person_label:
-                    return person_label == self.mate
+            for name in self.plist:
+                if name:
+                    return name == self.mate
         return False
 
 
