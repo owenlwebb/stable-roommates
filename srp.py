@@ -6,15 +6,15 @@ from dataclasses import dataclass
 @dataclass
 class Person:
     """Dataclass representation of a person in the SRP."""
-    prefs = {}  # static dictionary of ALL preference lists
+    all_people = {}  # static dictionary of ALL init'd People
 
     name: str
     mate: str
     plist: list
 
     def __post_init__(self):
-        """Add Person's pref list to the dict of all pref lists."""
-        Person.prefs[self.name] = self.plist
+        """Add Person to the dict of all People."""
+        Person.all_people[self.name] = self
 
     def pref_of(self: Person, other: Person) -> int:
         """Returns this Person's preference for another."""
@@ -29,18 +29,34 @@ class Person:
                     return name == self.mate
         return False
 
+    def get_next_highest(self: Person) -> str:
+        """Get next highest preferred roommate in plist."""
+        for person in self.plist:
+            if person:
+                return Person.all_people[person]
+        return None
+
+    @staticmethod
+    def reset():
+        """Reset the Person-wide all_people to an empty dictionary."""
+        Person.all_people = {}
+
 
 def srp(people):
     """Irving's Algorithm."""
-    pass
+
+    # PHASE 1
+    for person in (p for p in people if not p.has_best_match()):
+        potential = person.get_next_highest()
 
 
 if __name__ == '__main__':
-    PEOPLE = [Person('A', None, ['B', 'D', 'F', 'C', 'E']),
-              Person('B', None, ['D', 'E', 'F', 'A', 'C']),
-              Person('C', None, ['D', 'E', 'F', 'A', 'B']),
-              Person('D', None, ['F', 'C', 'A', 'E', 'B']),
-              Person('E', None, ['F', 'C', 'D', 'B', 'A']),
-              Person('F', None, ['A', 'B', 'D', 'C', 'E'])
-              ]
+    PEOPLE = [
+        Person('A', None, ['B', 'D', 'F', 'C', 'E']),
+        Person('B', None, ['D', 'E', 'F', 'A', 'C']),
+        Person('C', None, ['D', 'E', 'F', 'A', 'B']),
+        Person('D', None, ['F', 'C', 'A', 'E', 'B']),
+        Person('E', None, ['F', 'C', 'D', 'B', 'A']),
+        Person('F', None, ['A', 'B', 'D', 'C', 'E'])
+    ]
     srp(PEOPLE)
