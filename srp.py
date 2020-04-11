@@ -47,6 +47,26 @@ class Person:
         other.remove(self)
         self.remove(other)
 
+    def reduce_lower(self: Person) -> None:
+        """Delete all of those in self's preference list that are less desirable
+        than self's offer_held."""
+        index = self.plist.index(self.offer_held)
+        self.plist = [p if i <= index else None for i,
+                      p in enumerate(self.plist)]
+
+    def reduce_higher(self: Person) -> None:
+        """Delete all of those in self's preference list who's offer_held is
+        more preferable than self."""
+        for i, person in enumerate(self.plist):
+            if not person:  # ignore already deleted entries
+                continue
+
+            # get this Person and their currently held offer
+            person = Person.all_people[person]
+            curr_offer = Person.all_people[person.offer_held]
+            if person.pref_of(curr_offer) > person.pref_of(self):
+                self.plist[i] = None
+
     @staticmethod
     def get_person(name: str) -> Person:
         """Return the person object corresponding to name."""
@@ -79,7 +99,7 @@ def gen_offerers(people):
 def srp(people):
     """Irving's Algorithm."""
 
-    # PHASE 1
+    # PHASE 1 ~ Gale-Shaple-esque
     while True:
         # get next offerer
         try:
@@ -105,7 +125,14 @@ def srp(people):
             offerer.remove(offeree)
             offeree.remove(offerer)
 
-    # PHASE 2 (Cycle Removal)
+    # TODO: Add check for phase 1 failure
+
+    # PHASE 1 ~ Reduction
+    for person in people:       # Pg. 582 of Irving.
+        person.reduce_lower()   # del those to whom person prefers offer_held
+        person.reduce_higher()  # del those who offer_held is better than person
+
+    # PHASE 2 ~ Cycle Removal
     Person.print_pref_table()
 
 
