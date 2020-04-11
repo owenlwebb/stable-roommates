@@ -1,6 +1,7 @@
 """An implementation of Irving's Algorithm for the Stable Roommates Problem."""
 from __future__ import annotations
 from dataclasses import dataclass
+from itertools import islice
 
 
 @dataclass
@@ -29,9 +30,10 @@ class Person:
             # was set to None
             return -1
 
-    def get_next_highest(self: Person) -> Person:
-        """Get next highest preferred roommate in plist."""
-        return next(Person.all_people[p] for p in self.plist if p)
+    def get_nth_highest(self: Person, n: int) -> Person:
+        """Get the nth highest preferred roommate in plist."""
+        non_null_prefs = (Person.all_people[p] for p in self.plist if p)
+        return next(islice(non_null_prefs, n - 1, None))
 
     def remove(self: Person, other: Person) -> None:
         """Remove other from self's preference list."""
@@ -107,7 +109,7 @@ def srp(people):
     # PHASE 1 ~ Gale-Shaple-esque
     for offerer in gen_offerers(people):
         # get next offeree and the current person they've given a POC to
-        offeree = offerer.get_next_highest()
+        offeree = offerer.get_nth_highest(1)
         offeree_poc = Person.get_person(offeree.offer_held)
 
         # Offeree accepts automatically
@@ -134,9 +136,10 @@ def srp(people):
         person.reduce_higher()  # del those who offer_held is better than person
 
     # PHASE 2 ~ Cycle Removal
-    for person in gen_cycle_start(people):
-        pass
     Person.print_pref_table()
+    for orig_person in gen_cycle_start(people):
+        curr_person = orig_person
+        to_remove = curr_person.get_nth_highest(2)
 
 
 def gen_offerers(people):
