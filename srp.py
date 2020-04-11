@@ -125,7 +125,9 @@ def srp(people):
             offerer.remove(offeree)
             offeree.remove(offerer)
 
-    # TODO: Add check for phase 1 failure
+    # If someone does not hold an offer after Phase 1, no stable matching exists
+    if not all(p.offer_held for p in people):
+        return []
 
     # PHASE 1 ~ Reduction
     for person in people:       # Pg. 582 of Irving.
@@ -145,4 +147,7 @@ if __name__ == '__main__':
         Person('E', None, None, ['F', 'C', 'D', 'B', 'A']),
         Person('F', None, None, ['A', 'B', 'D', 'C', 'E'])
     ]
-    srp(PEOPLE)
+    matching = srp(PEOPLE)
+
+    if not matching:
+        print("No stable matching!")
