@@ -85,28 +85,27 @@ class Person:
             print(f"{person.name} | " + ' '.join(print_list))
 
 
-def gen_offerers(people):
-    """Yield the next Person that is eligible to make an offer."""
-    all_matched = False
-    while not all_matched:
-        all_matched = True  # assume and correct if not
-        for person in people:
-            if not person.offer_sent and any(person.plist):
-                all_matched = False
-                yield person
+def main():
+    """Testing."""
+    people = [
+        Person('A', None, None, ['B', 'D', 'F', 'C', 'E']),
+        Person('B', None, None, ['D', 'E', 'F', 'A', 'C']),
+        Person('C', None, None, ['D', 'E', 'F', 'A', 'B']),
+        Person('D', None, None, ['F', 'C', 'A', 'E', 'B']),
+        Person('E', None, None, ['F', 'C', 'D', 'B', 'A']),
+        Person('F', None, None, ['A', 'B', 'D', 'C', 'E'])
+    ]
+    matching = srp(people)
+
+    if not matching:
+        print("No stable matching!")
 
 
 def srp(people):
     """Irving's Algorithm."""
 
     # PHASE 1 ~ Gale-Shaple-esque
-    while True:
-        # get next offerer
-        try:
-            offerer = next(gen_offerers(people))
-        except StopIteration:
-            break
-
+    for offerer in gen_offerers(people):
         # get next offeree and the current person they've given a POC to
         offeree = offerer.get_next_highest()
         offeree_poc = Person.get_person(offeree.offer_held)
@@ -135,19 +134,38 @@ def srp(people):
         person.reduce_higher()  # del those who offer_held is better than person
 
     # PHASE 2 ~ Cycle Removal
+    for person in gen_cycle_start(people):
+        pass
     Person.print_pref_table()
 
 
-if __name__ == '__main__':
-    PEOPLE = [
-        Person('A', None, None, ['B', 'D', 'F', 'C', 'E']),
-        Person('B', None, None, ['D', 'E', 'F', 'A', 'C']),
-        Person('C', None, None, ['D', 'E', 'F', 'A', 'B']),
-        Person('D', None, None, ['F', 'C', 'A', 'E', 'B']),
-        Person('E', None, None, ['F', 'C', 'D', 'B', 'A']),
-        Person('F', None, None, ['A', 'B', 'D', 'C', 'E'])
-    ]
-    matching = srp(PEOPLE)
+def gen_offerers(people):
+    """Yield the next Person that is eligible to make an offer."""
+    all_matched = False
+    while not all_matched:
+        all_matched = True  # assume and correct if not
+        for person in people:
+            if not person.offer_sent and any(person.plist):
+                all_matched = False
+                yield person
 
-    if not matching:
-        print("No stable matching!")
+
+def gen_cycle_start(people):
+    """Yield the next person whose preference list indicates the start of a
+    preference cycle. This is simply any person who has more than one entry
+    left in their preference list. Raise StopIteration when no such person
+    exists, or there exists a person with an empty preference list."""
+    cycles_exist = True
+    while cycles_exist:
+        cycles_exist = False  # assume and correct if not
+        for person in people:
+            prefs_left = len(person.plist) - person.plist.count(None)
+            if prefs_left > 1:
+                cycles_exist = True
+                yield person
+            elif prefs_left == 0:
+                return
+
+
+if __name__ == '__main__':
+    main()
