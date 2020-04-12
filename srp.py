@@ -138,13 +138,17 @@ def srp(people):
 
     # If someone does not hold an offer after Phase 1, no stable matching exists
     if not all(p.offer_held is not None for p in people):
-        print("No stable matching")
+        print("No stable matching (failed after phase 1)")
         return
 
     # PHASE 1 ~ Reduction
     for person in people:       # Pg. 582 of Irving.
         person.reduce_lower()   # del those to whom person prefers offer_held
         person.reduce_higher()  # del those who offer_held is better than person
+
+    # Failure check
+    if any((len(p.plist) - p.plist.count(None) == 0) for p in people):
+        print("No stable matching (failed after phase 1 reduction)")
 
     # PHASE 2 ~ Cycle Removal
     for person in people:
@@ -173,7 +177,7 @@ def srp(people):
         print('Stable matching found!\n')
         Person.print_pref_table()
     else:
-        print('No stable matching')
+        print('No stable matching (failed after phase 2')
 
 
 def gen_offerers(people):
