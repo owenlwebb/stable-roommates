@@ -87,15 +87,11 @@ def main():
     for test_file in glob.glob("*.test.json"):
         with open(test_file, 'r') as fin:
             test = json.load(fin)
-
-            people = []
-            for name, prefs in test.items():
-                people.append(Person(name, prefs))
-
             print(f'*** TESTING: {test_file} ***')
+            people = [Person(name, prefs) for (name, prefs) in test.items()]
             srp(people)
-            Person.reset()
             print()
+            Person.reset()
 
 
 def srp(people):
