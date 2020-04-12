@@ -13,7 +13,7 @@ class Person:
     all_people = {}     # static dictionary of ALL init'd People
 
     name: str
-    offer_sent: str     # Person to whom an offer was sent and a POC was recvd
+    offer_sent: bool    # Has this person made their offer?
     offer_held: str     # Person who gave self an offer and self sent a POC
     plist: list         # Preference list
 
@@ -31,23 +31,18 @@ class Person:
             return -1
 
     def get_nth_highest(self: Person, n: int) -> Person:
-        """Get the nth highest preferred roommate in plist."""
+        """Get the nth highest preferred roommate in plist. Return least
+        preferred person if n = -1."""
         non_null_prefs = (Person.all_people[p] for p in self.plist if p)
-        return next(islice(non_null_prefs, n - 1, None))
+        for i, pref in enumerate(non_null_prefs):
+            if i + 1 == n:
+                return pref
+        assert n == -1
+        return pref     # return last pref if n == -1
 
     def remove(self: Person, other: Person) -> None:
         """Remove other from self's preference list."""
         self.plist[self.plist.index(other.name)] = None
-
-    def reject(self: Person, other: Person) -> None:
-        """self and other symetrically reject."""
-        assert self.offer_held and (self.offer_held == other.name)
-        assert other.offer_sent and (other.offer_sent == self.name)
-
-        other.offer_sent = None
-        self.offer_held = None
-        other.remove(self)
-        self.remove(other)
 
     def reduce_lower(self: Person) -> None:
         """Delete all of those in self's preference list that are less desirable
@@ -90,12 +85,12 @@ class Person:
 def main():
     """Testing."""
     people = [
-        Person('A', None, None, ['B', 'D', 'F', 'C', 'E']),
-        Person('B', None, None, ['D', 'E', 'F', 'A', 'C']),
-        Person('C', None, None, ['D', 'E', 'F', 'A', 'B']),
-        Person('D', None, None, ['F', 'C', 'A', 'E', 'B']),
-        Person('E', None, None, ['F', 'C', 'D', 'B', 'A']),
-        Person('F', None, None, ['A', 'B', 'D', 'C', 'E'])
+        Person('A', None, False, ['B', 'D', 'F', 'C', 'E']),
+        Person('B', None, False, ['D', 'E', 'F', 'A', 'C']),
+        Person('C', None, False, ['D', 'E', 'F', 'A', 'B']),
+        Person('D', None, False, ['F', 'C', 'A', 'E', 'B']),
+        Person('E', None, False, ['F', 'C', 'D', 'B', 'A']),
+        Person('F', None, False, ['A', 'B', 'D', 'C', 'E'])
     ]
     matching = srp(people)
 
@@ -110,16 +105,20 @@ def srp(people):
     for offerer in gen_offerers(people):
         # get next offeree and the current person they've given a POC to
         offeree = offerer.get_nth_highest(1)
-        offeree_poc = Person.get_person(offeree.offer_held)
+        offeree_curr = Person.get_person(offeree.offer_held)
 
         # Offeree accepts automatically
-        if not offeree_poc:
-            offerer.offer_sent = offeree.name
+        if not offeree_curr:
+            offerer.offer_sent = True
             offeree.offer_held = offerer.name
         # Offeree trades up
-        elif offeree.pref_of(offerer) > offeree.pref_of(offeree_poc):
-            offeree.reject(offeree_poc)  # symetrically reject former
-            offerer.offer_sent = offeree.name
+        elif offeree.pref_of(offerer) > offeree.pref_of(offeree_curr):
+            # reject former partner
+            offeree.remove(offeree_curr)
+            offeree_curr.remove(offeree)
+            offeree_curr.offer_sent = False
+
+            offerer.offer_sent = True
             offeree.offer_held = offerer.name
         # Offereee rejects
         else:
@@ -136,10 +135,18 @@ def srp(people):
         person.reduce_higher()  # del those who offer_held is better than person
 
     # PHASE 2 ~ Cycle Removal
-    Person.print_pref_table()
     for orig_person in gen_cycle_start(people):
-        curr_person = orig_person
-        to_remove = curr_person.get_nth_highest(2)
+        cycle = [orig_person]
+        while (len(cycle) == 1) or (cycle[0] != cycle[-1]):
+            cycle.append(cycle[-1].get_nth_highest(2))
+            cycle.append(cycle[-1].get_nth_highest(-1))
+
+        # consecutive pairs in the cycle reject each other
+        for i in range(1, len(cycle) - 1, 2):
+            cycle[i].remove(cycle[i + 1])
+            cycle[i + 1].remove(cycle[i])
+
+    Person.print_pref_table()
 
 
 def gen_offerers(people):
@@ -156,8 +163,8 @@ def gen_offerers(people):
 def gen_cycle_start(people):
     """Yield the next person whose preference list indicates the start of a
     preference cycle. This is simply any person who has more than one entry
-    left in their preference list. Raise StopIteration when no such person
-    exists, or there exists a person with an empty preference list."""
+    left in their preference list. Return when no such person exists, or there
+    exists a person with an empty preference list."""
     cycles_exist = True
     while cycles_exist:
         cycles_exist = False  # assume and correct if not
