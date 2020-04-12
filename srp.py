@@ -158,10 +158,14 @@ def srp(people):
         if prefs_left >= 2:
             cycle = [person]
             try:
-                # build the preference cycle
-                while (len(cycle) == 1) or (cycle[0] != cycle[-1]):
+                # Pg. 586 of Irving
+                # build an all-or-nothing cycle
+                cycle_found = False
+                while not cycle_found:
                     cycle.append(cycle[-1].get_nth_highest(2))
                     cycle.append(cycle[-1].get_nth_highest(-1))
+                    cycle_found = ((cycle[0] == cycle[-1]) or
+                                   (cycle[0] == cycle[-2]))
 
                 # consecutive pairs in the cycle reject each other
                 for i in range(1, len(cycle) - 1, 2):
