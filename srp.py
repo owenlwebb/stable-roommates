@@ -26,14 +26,15 @@ class Person:
         try:
             return len(self.plist) - self.plist.index(other.name)
         except ValueError:
-            # return -1 when other is not found in plist. Must be that other
-            # was set to None
+            # must be that that person was already deleted for consideration
+            # from the preference list.
             return -1
 
     def get_nth_highest(self: Person, n: int) -> Person:
         """Get the nth highest preferred roommate in plist. Return least
         preferred person if n = -1."""
-        non_null_prefs = (Person.all_people[p] for p in self.plist if p)
+        non_null_prefs = (Person.all_people[p]
+                          for p in self.plist if p is not None)
         for i, pref in enumerate(non_null_prefs):
             if i + 1 == n:
                 return pref
@@ -67,7 +68,7 @@ class Person:
     @staticmethod
     def get_person(name: str) -> Person:
         """Return the person object corresponding to name."""
-        return Person.all_people[name] if name else None
+        return Person.all_people[name] if name is not None else None
 
     @staticmethod
     def reset() -> None:
@@ -78,19 +79,19 @@ class Person:
     def print_pref_table() -> None:
         """Print the table of people and their preference lists."""
         for person in sorted(Person.all_people.values(), key=lambda p: p.name):
-            print_list = [p if p else ' ' for p in person.plist]
+            print_list = [p if p is not None else ' ' for p in person.plist]
             print(f"{person.name} | " + ' '.join(print_list))
 
 
 def main():
     """Testing."""
     people = [
-        Person('A', None, False, ['B', 'D', 'F', 'C', 'E']),
-        Person('B', None, False, ['D', 'E', 'F', 'A', 'C']),
-        Person('C', None, False, ['D', 'E', 'F', 'A', 'B']),
-        Person('D', None, False, ['F', 'C', 'A', 'E', 'B']),
-        Person('E', None, False, ['F', 'C', 'D', 'B', 'A']),
-        Person('F', None, False, ['A', 'B', 'D', 'C', 'E'])
+        Person('A', False, None, ['B', 'D', 'F', 'C', 'E']),
+        Person('B', False, None, ['D', 'E', 'F', 'A', 'C']),
+        Person('C', False, None, ['D', 'E', 'F', 'A', 'B']),
+        Person('D', False, None, ['F', 'C', 'A', 'E', 'B']),
+        Person('E', False, None, ['F', 'C', 'D', 'B', 'A']),
+        Person('F', False, None, ['A', 'B', 'D', 'C', 'E'])
     ]
     matching = srp(people)
 
@@ -108,7 +109,7 @@ def srp(people):
         offeree_curr = Person.get_person(offeree.offer_held)
 
         # Offeree accepts automatically
-        if not offeree_curr:
+        if offeree_curr is None:
             offerer.offer_sent = True
             offeree.offer_held = offerer.name
         # Offeree trades up
@@ -126,7 +127,7 @@ def srp(people):
             offeree.remove(offerer)
 
     # If someone does not hold an offer after Phase 1, no stable matching exists
-    if not all(p.offer_held for p in people):
+    if not all(p.offer_held is not None for p in people):
         return []
 
     # PHASE 1 ~ Reduction
