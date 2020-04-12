@@ -165,7 +165,7 @@ def srp(people):
 
     # Final failure check
     if not all((len(p.plist) - p.plist.count(None) == 1) for p in people):
-        print('No stable matching (failed after phase 2')
+        print('No stable matching (failed after phase 2)')
         return
 
     print('Stable matching found!\n')
