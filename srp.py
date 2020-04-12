@@ -5,19 +5,14 @@ import glob
 import json
 import os
 from dataclasses import dataclass
-from itertools import islice
 
 
 @dataclass
 class Person:
-    """Dataclass representation of a person in the SRP.
-
-    POC = Promise of Consideration.
-    """
+    """Dataclass representation of a person in the SRP."""
     all_people = {}     # static dictionary of ALL init'd People
-
     name: str
-    plist: list         # Preference list
+    plist: list
 
     def __post_init__(self):
         """Add Person to the dict of all People and set default values for
@@ -31,21 +26,18 @@ class Person:
         try:
             return len(self.plist) - self.plist.index(other.name)
         except ValueError:
-            # must be that that person was already deleted for consideration
+            # must be that that other was already deleted for consideration
             # from the preference list.
             return -1
 
     def get_nth_highest(self: Person, n: int) -> Person:
         """Get the nth highest preferred roommate in plist. Return least
         preferred person if n = -1."""
-        non_null_prefs = (Person.all_people[p]
-                          for p in self.plist if p is not None)
-        for i, pref in enumerate(non_null_prefs):
-            if i + 1 == n:
-                return pref
+        non_null_prefs = [Person.all_people[p]
+                          for p in self.plist if p is not None]
         if n == -1:
-            return pref     # return last pref if n == -1
-        raise ValueError(f"Less than n entries in {self.name} preference list")
+            return non_null_prefs[-1]
+        return non_null_prefs[n - 1]
 
     def remove(self: Person, other: Person) -> None:
         """Remove other from self's preference list."""
@@ -53,14 +45,14 @@ class Person:
 
     def reduce_lower(self: Person) -> None:
         """Delete all of those in self's preference list that are less desirable
-        than self's offer_held."""
+        than self's offer_held. Part of Phase 1 reduction"""
         index = self.plist.index(self.offer_held)
         self.plist = [p if i <= index else None for i,
                       p in enumerate(self.plist)]
 
     def reduce_higher(self: Person) -> None:
         """Delete all of those in self's preference list who's offer_held is
-        more preferable than self."""
+        more preferable than self. Part of Phase 1 reduction."""
         for i, person in enumerate(self.plist):
             if not person:  # ignore already deleted entries
                 continue
@@ -90,8 +82,7 @@ class Person:
 
 
 def main():
-    """Testing. Test files should be a single JSON dictionary mapping a name
-    to a list of preferences."""
+    """Testing. See readme.md for testing instructions."""
     os.chdir(os.getcwd())
     for test_file in glob.glob("*.test.json"):
         with open(test_file, 'r') as fin:
@@ -151,37 +142,34 @@ def srp(people):
         print("No stable matching (failed after phase 1 reduction)")
 
     # PHASE 2 ~ Cycle Removal
-    for person in people:
-        prefs_left = len(person.plist) - person.plist.count(None)
-        if prefs_left == 0:
-            break  # No stable matching
-        if prefs_left >= 2:
-            cycle = [person]
-            try:
-                # Pg. 586 of Irving
-                # build an all-or-nothing cycle
-                cycle_found = False
-                while not cycle_found:
-                    cycle.append(cycle[-1].get_nth_highest(2))
-                    cycle.append(cycle[-1].get_nth_highest(-1))
-                    cycle_found = ((cycle[0] == cycle[-1]) or
-                                   (cycle[0] == cycle[-2]))
+    for person in (p for p in people if len(p.plist) - p.plist.count(None) > 1):
+        cycle = [person]
+        try:
+            # Pg. 586 of Irving
+            # build an all-or-nothing cycle
+            cycle_found = False
+            while not cycle_found:
+                cycle.append(cycle[-1].get_nth_highest(2))
+                cycle.append(cycle[-1].get_nth_highest(-1))
+                cycle_found = ((cycle[0] == cycle[-1]) or
+                               (cycle[0] == cycle[-2]))
 
-                # consecutive pairs in the cycle reject each other
-                for i in range(1, len(cycle) - 1, 2):
-                    cycle[i].remove(cycle[i + 1])
-                    cycle[i + 1].remove(cycle[i])
-            except ValueError:
-                # something when wrong in cycle creation/removal.
-                # No stable matching.
-                break
+            # consecutive pairs in the cycle reject each other
+            for i in range(1, len(cycle) - 1, 2):
+                cycle[i].remove(cycle[i + 1])
+                cycle[i + 1].remove(cycle[i])
+        except ValueError:
+            # something when wrong in cycle creation/removal.
+            # No stable matching.
+            break
 
-    # Final check if preference lists specify a stable matching
-    if all((len(p.plist) - p.plist.count(None) == 1) for p in people):
-        print('Stable matching found!\n')
-        Person.print_pref_table()
-    else:
+    # Final failure check
+    if not all((len(p.plist) - p.plist.count(None) == 1) for p in people):
         print('No stable matching (failed after phase 2')
+        return
+
+    print('Stable matching found!\n')
+    Person.print_pref_table()
 
 
 def gen_offerers(people):
