@@ -93,7 +93,7 @@ def main():
     """Testing. Test files should be a single JSON dictionary mapping a name
     to a list of preferences."""
     os.chdir(os.getcwd())
-    for test_file in glob.glob("*test?.json"):
+    for test_file in glob.glob("*.test.json"):
         with open(test_file, 'r') as fin:
             test = json.load(fin)
 
