@@ -1,5 +1,9 @@
 """An implementation of Irving's Algorithm for the Stable Roommates Problem."""
 from __future__ import annotations
+
+import glob
+import json
+import os
 from dataclasses import dataclass
 from itertools import islice
 
@@ -13,13 +17,14 @@ class Person:
     all_people = {}     # static dictionary of ALL init'd People
 
     name: str
-    offer_sent: bool    # Has this person made their offer?
-    offer_held: str     # Person who gave self an offer and self sent a POC
     plist: list         # Preference list
 
     def __post_init__(self):
-        """Add Person to the dict of all People."""
+        """Add Person to the dict of all People and set default values for
+        whether this person has made an offer and who they hold an offer from"""
         Person.all_people[self.name] = self
+        self.offer_sent = False     # Has this person made their offer?
+        self.offer_held = None      # Person self is holding an offer from
 
     def pref_of(self: Person, other: Person) -> int:
         """Returns this Person's preference for another."""
@@ -38,8 +43,9 @@ class Person:
         for i, pref in enumerate(non_null_prefs):
             if i + 1 == n:
                 return pref
-        assert n == -1
-        return pref     # return last pref if n == -1
+        if n == -1:
+            return pref     # return last pref if n == -1
+        raise ValueError(f"Less than n entries in {self.name} preference list")
 
     def remove(self: Person, other: Person) -> None:
         """Remove other from self's preference list."""
@@ -84,23 +90,27 @@ class Person:
 
 
 def main():
-    """Testing."""
-    people = [
-        Person('A', False, None, ['B', 'D', 'F', 'C', 'E']),
-        Person('B', False, None, ['D', 'E', 'F', 'A', 'C']),
-        Person('C', False, None, ['D', 'E', 'F', 'A', 'B']),
-        Person('D', False, None, ['F', 'C', 'A', 'E', 'B']),
-        Person('E', False, None, ['F', 'C', 'D', 'B', 'A']),
-        Person('F', False, None, ['A', 'B', 'D', 'C', 'E'])
-    ]
-    matching = srp(people)
+    """Testing. Test files should be a single JSON dictionary mapping a name
+    to a list of preferences."""
+    os.chdir(os.getcwd())
+    for test_file in glob.glob("*test?.json"):
+        with open(test_file, 'r') as fin:
+            test = json.load(fin)
 
-    if not matching:
-        print("No stable matching!")
+            people = []
+            for name, prefs in test.items():
+                people.append(Person(name, prefs))
+
+            print(f'*** TESTING: {test_file} ***')
+            srp(people)
+            Person.reset()
+            print()
 
 
 def srp(people):
     """Irving's Algorithm."""
+    Person.print_pref_table()
+    print()
 
     # PHASE 1 ~ Gale-Shaple-esque
     for offerer in gen_offerers(people):
@@ -128,7 +138,8 @@ def srp(people):
 
     # If someone does not hold an offer after Phase 1, no stable matching exists
     if not all(p.offer_held is not None for p in people):
-        return []
+        print("No stable matching")
+        return
 
     # PHASE 1 ~ Reduction
     for person in people:       # Pg. 582 of Irving.
@@ -136,18 +147,33 @@ def srp(people):
         person.reduce_higher()  # del those who offer_held is better than person
 
     # PHASE 2 ~ Cycle Removal
-    for orig_person in gen_cycle_start(people):
-        cycle = [orig_person]
-        while (len(cycle) == 1) or (cycle[0] != cycle[-1]):
-            cycle.append(cycle[-1].get_nth_highest(2))
-            cycle.append(cycle[-1].get_nth_highest(-1))
+    for person in people:
+        prefs_left = len(person.plist) - person.plist.count(None)
+        if prefs_left == 0:
+            break  # No stable matching
+        if prefs_left >= 2:
+            cycle = [person]
+            try:
+                # build the preference cycle
+                while (len(cycle) == 1) or (cycle[0] != cycle[-1]):
+                    cycle.append(cycle[-1].get_nth_highest(2))
+                    cycle.append(cycle[-1].get_nth_highest(-1))
 
-        # consecutive pairs in the cycle reject each other
-        for i in range(1, len(cycle) - 1, 2):
-            cycle[i].remove(cycle[i + 1])
-            cycle[i + 1].remove(cycle[i])
+                # consecutive pairs in the cycle reject each other
+                for i in range(1, len(cycle) - 1, 2):
+                    cycle[i].remove(cycle[i + 1])
+                    cycle[i + 1].remove(cycle[i])
+            except ValueError:
+                # something when wrong in cycle creation/removal.
+                # No stable matching.
+                break
 
-    Person.print_pref_table()
+    # Final check if preference lists specify a stable matching
+    if all((len(p.plist) - p.plist.count(None) == 1) for p in people):
+        print('Stable matching found!\n')
+        Person.print_pref_table()
+    else:
+        print('No stable matching')
 
 
 def gen_offerers(people):
@@ -159,23 +185,6 @@ def gen_offerers(people):
             if not person.offer_sent and any(person.plist):
                 all_matched = False
                 yield person
-
-
-def gen_cycle_start(people):
-    """Yield the next person whose preference list indicates the start of a
-    preference cycle. This is simply any person who has more than one entry
-    left in their preference list. Return when no such person exists, or there
-    exists a person with an empty preference list."""
-    cycles_exist = True
-    while cycles_exist:
-        cycles_exist = False  # assume and correct if not
-        for person in people:
-            prefs_left = len(person.plist) - person.plist.count(None)
-            if prefs_left > 1:
-                cycles_exist = True
-                yield person
-            elif prefs_left == 0:
-                return
 
 
 if __name__ == '__main__':
