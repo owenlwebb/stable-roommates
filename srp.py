@@ -6,10 +6,10 @@ import json
 import os
 from dataclasses import dataclass
 import sys
-
+from collections import Counter
 import gen_tests
 
-i = 0
+z = 0
 
 
 @dataclass
@@ -88,38 +88,18 @@ class Person:
 
 def main():
     """Testing. See readme.md for testing instructions."""
-    # os.chdir(os.getcwd())
-    # files = glob.glob("*.test.json")
-    # if len(sys.argv) == 2:
-    #     files = [sys.argv[1]]
-
-    # results = []
-    # for test_file in files:
-    #     with open(test_file, 'r') as fin:
-    #         test = json.load(fin)
-    #         print(f'*** TESTING: {test_file} ***')
-    #         people = [Person(name, prefs) for (name, prefs) in test.items()]
-    #         res = srp(people)
-    #         print()
-    #         Person.reset()
-    #     results.append((test_file, res))
-
-    # for name, res in results:
-    #     print(f"{name} : {res}")
-    global i
     success = 0
-    for i, test in enumerate(gen_tests.gen_tests(int(sys.argv[1]), rand=False)):
+    for z, test in enumerate(gen_tests.gen_tests(int(sys.argv[1]), rand=True)):
         people = [Person(name, prefs) for (name, prefs) in test.items()]
         res = srp(people)
         Person.reset()
-        success += res
-        print(f'\r{success}/{i}', end='')
+        success += (res == 0)
 
-        if i == 1296:
+        print(f'\r{z}/1000000')
+        if z == 999999:
             break
-    print()
 
-    print(success)
+    print(f'{success}/1000000')
 
 
 def srp(people):
@@ -154,7 +134,7 @@ def srp(people):
     # If someone does not hold an offer after Phase 1, no stable matching exists
     if not all(p.offer_held is not None for p in people):
         # print("No stable matching (failed after phase 1)")
-        return 0
+        return 1
 
     # PHASE 1 ~ Reduction
     for person in people:       # Pg. 582 of Irving.
@@ -164,22 +144,41 @@ def srp(people):
     # Failure check
     if any((len(p.plist) - p.plist.count(None) == 0) for p in people):
         # print("No stable matching (failed after phase 1 reduction)")
-        return 0
+        return 2
 
     # PHASE 2 ~ Cycle Removal
     for person in (p for p in people if len(p.plist) - p.plist.count(None) > 1):
-        cycle = [person]
+        p_seq = [person]
+        q_seq = []
         try:
             # Pg. 586 of Irving
             # build an all-or-nothing cycle
-            while len(cycle[::2]) == len(set(p.name for p in cycle[::2])):
-                cycle.append(cycle[-1].get_nth_highest(2))
-                cycle.append(cycle[-1].get_nth_highest(-1))
+            while p_seq[-1] not in p_seq[:-1]:
+                q_seq.append(p_seq[-1].get_nth_highest(2))
+                p_seq.append(q_seq[-1].get_nth_highest(-1))
 
-            # consecutive pairs in the cycle reject each other
-            for i in range(1, len(cycle) - 1, 2):
-                cycle[i].remove(cycle[i + 1])
-                cycle[i + 1].remove(cycle[i])
+            a_1_index = p_seq.index(p_seq[-1])
+            a_seq = p_seq[a_1_index: -1]
+
+            # each b_i rejects a_i. (b_i is the highest person in list of a_i)
+            for a_i in a_seq:
+                b_i = a_i.get_nth_highest(1)
+                b_i.remove(a_i)
+                b_i.offer_held = None
+                a_i.remove(b_i)
+
+            # each a_i proposes to b_iplus1 (now the highest in their pref list)
+            for a_i in a_seq:
+                b_iplus1 = a_i.get_nth_highest(1)
+                b_iplus1.offer_held = a_i.name
+
+                a_i_index = b_iplus1.plist.index(a_i.name)
+                for i, to_remove in enumerate(b_iplus1.plist):
+                    if to_remove is not None:
+                        to_remove = Person.get_person(to_remove)
+                        if i > a_i_index:
+                            b_iplus1.remove(to_remove)
+                            to_remove.remove(b_iplus1)
         except (ValueError, IndexError):
             # something when wrong in cycle creation/removal.
             # No stable matching.
@@ -188,11 +187,11 @@ def srp(people):
     # Final failure check
     if not all((len(p.plist) - p.plist.count(None) == 1) for p in people):
         # print('No stable matching (failed after phase 2)')
-        return 0
+        return 3
 
     # print('Stable matching found!\n')
     # Person.print_pref_table()
-    return 1
+    return 0
 
 
 def gen_offerers(people):

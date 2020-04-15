@@ -3,6 +3,7 @@
 import itertools
 from copy import deepcopy
 from random import shuffle
+from random import seed
 
 
 def builder(l):
