@@ -143,18 +143,15 @@ def srp(people):
         try:
             # Pg. 586 of Irving
             # build an all-or-nothing cycle
-            cycle_found = False
-            while not cycle_found:
+            while len(cycle[::2]) == len(set(p.name for p in cycle[::2])):
                 cycle.append(cycle[-1].get_nth_highest(2))
                 cycle.append(cycle[-1].get_nth_highest(-1))
-                cycle_found = ((cycle[0] == cycle[-1]) or
-                               (cycle[0] == cycle[-2]))
 
             # consecutive pairs in the cycle reject each other
             for i in range(1, len(cycle) - 1, 2):
                 cycle[i].remove(cycle[i + 1])
                 cycle[i + 1].remove(cycle[i])
-        except ValueError:
+        except (ValueError, IndexError):
             # something when wrong in cycle creation/removal.
             # No stable matching.
             break
