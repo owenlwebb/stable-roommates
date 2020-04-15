@@ -5,6 +5,11 @@ import glob
 import json
 import os
 from dataclasses import dataclass
+import sys
+
+import gen_tests
+
+i = 0
 
 
 @dataclass
@@ -83,21 +88,44 @@ class Person:
 
 def main():
     """Testing. See readme.md for testing instructions."""
-    os.chdir(os.getcwd())
-    for test_file in glob.glob("*.test.json"):
-        with open(test_file, 'r') as fin:
-            test = json.load(fin)
-            print(f'*** TESTING: {test_file} ***')
-            people = [Person(name, prefs) for (name, prefs) in test.items()]
-            srp(people)
-            print()
-            Person.reset()
+    # os.chdir(os.getcwd())
+    # files = glob.glob("*.test.json")
+    # if len(sys.argv) == 2:
+    #     files = [sys.argv[1]]
+
+    # results = []
+    # for test_file in files:
+    #     with open(test_file, 'r') as fin:
+    #         test = json.load(fin)
+    #         print(f'*** TESTING: {test_file} ***')
+    #         people = [Person(name, prefs) for (name, prefs) in test.items()]
+    #         res = srp(people)
+    #         print()
+    #         Person.reset()
+    #     results.append((test_file, res))
+
+    # for name, res in results:
+    #     print(f"{name} : {res}")
+    global i
+    success = 0
+    for i, test in enumerate(gen_tests.gen_tests(int(sys.argv[1]), rand=False)):
+        people = [Person(name, prefs) for (name, prefs) in test.items()]
+        res = srp(people)
+        Person.reset()
+        success += res
+        print(f'\r{success}/{i}', end='')
+
+        if i == 1296:
+            break
+    print()
+
+    print(success)
 
 
 def srp(people):
     """Irving's Algorithm."""
-    Person.print_pref_table()
-    print()
+    # Person.print_pref_table()
+    # print()
 
     # PHASE 1 ~ Gale-Shaple-esque
     for offerer in gen_offerers(people):
@@ -125,8 +153,8 @@ def srp(people):
 
     # If someone does not hold an offer after Phase 1, no stable matching exists
     if not all(p.offer_held is not None for p in people):
-        print("No stable matching (failed after phase 1)")
-        return
+        # print("No stable matching (failed after phase 1)")
+        return 0
 
     # PHASE 1 ~ Reduction
     for person in people:       # Pg. 582 of Irving.
@@ -135,7 +163,8 @@ def srp(people):
 
     # Failure check
     if any((len(p.plist) - p.plist.count(None) == 0) for p in people):
-        print("No stable matching (failed after phase 1 reduction)")
+        # print("No stable matching (failed after phase 1 reduction)")
+        return 0
 
     # PHASE 2 ~ Cycle Removal
     for person in (p for p in people if len(p.plist) - p.plist.count(None) > 1):
@@ -143,29 +172,27 @@ def srp(people):
         try:
             # Pg. 586 of Irving
             # build an all-or-nothing cycle
-            cycle_found = False
-            while not cycle_found:
+            while len(cycle[::2]) == len(set(p.name for p in cycle[::2])):
                 cycle.append(cycle[-1].get_nth_highest(2))
                 cycle.append(cycle[-1].get_nth_highest(-1))
-                cycle_found = ((cycle[0] == cycle[-1]) or
-                               (cycle[0] == cycle[-2]))
 
             # consecutive pairs in the cycle reject each other
             for i in range(1, len(cycle) - 1, 2):
                 cycle[i].remove(cycle[i + 1])
                 cycle[i + 1].remove(cycle[i])
-        except ValueError:
+        except (ValueError, IndexError):
             # something when wrong in cycle creation/removal.
             # No stable matching.
             break
 
     # Final failure check
     if not all((len(p.plist) - p.plist.count(None) == 1) for p in people):
-        print('No stable matching (failed after phase 2)')
-        return
+        # print('No stable matching (failed after phase 2)')
+        return 0
 
-    print('Stable matching found!\n')
-    Person.print_pref_table()
+    # print('Stable matching found!\n')
+    # Person.print_pref_table()
+    return 1
 
 
 def gen_offerers(people):
