@@ -139,18 +139,37 @@ def srp(people):
 
     # PHASE 2 ~ Cycle Removal
     for person in (p for p in people if len(p.plist) - p.plist.count(None) > 1):
-        cycle = [person]
+        p_seq = [person]
+        q_seq = []
         try:
             # Pg. 586 of Irving
             # build an all-or-nothing cycle
-            while len(cycle[::2]) == len(set(p.name for p in cycle[::2])):
-                cycle.append(cycle[-1].get_nth_highest(2))
-                cycle.append(cycle[-1].get_nth_highest(-1))
+            while p_seq[-1] not in p_seq[:-1]:
+                q_seq.append(p_seq[-1].get_nth_highest(2))
+                p_seq.append(q_seq[-1].get_nth_highest(-1))
 
-            # consecutive pairs in the cycle reject each other
-            for i in range(1, len(cycle) - 1, 2):
-                cycle[i].remove(cycle[i + 1])
-                cycle[i + 1].remove(cycle[i])
+            a_1_index = p_seq.index(p_seq[-1])
+            a_seq = p_seq[a_1_index: -1]
+
+            # each b_i rejects a_i. (b_i is the highest person in list of a_i)
+            for a_i in a_seq:
+                b_i = a_i.get_nth_highest(1)
+                b_i.remove(a_i)
+                b_i.offer_held = None
+                a_i.remove(b_i)
+
+            # each a_i proposes to b_iplus1 (now the highest in their pref list)
+            for a_i in a_seq:
+                b_iplus1 = a_i.get_nth_highest(1)
+                b_iplus1.offer_held = a_i.name
+
+                a_i_index = b_iplus1.plist.index(a_i.name)
+                for i, to_remove in enumerate(b_iplus1.plist):
+                    if to_remove is not None:
+                        to_remove = Person.get_person(to_remove)
+                        if i > a_i_index:
+                            b_iplus1.remove(to_remove)
+                            to_remove.remove(b_iplus1)
         except (ValueError, IndexError):
             # something when wrong in cycle creation/removal.
             # No stable matching.
