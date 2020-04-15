@@ -95,7 +95,7 @@ def main():
         Person.reset()
         success += (res == 0)
 
-        print(f'\r{z}/1000000')
+        print(f'\r{z}/1000000', end='')
         if z == 999999:
             break
 
